@@ -8,14 +8,15 @@ defmodule Kaqibot.Connection do
 					user: "",
 					name: "",
 					token: "",
-					client: nil,
-					channel: ""
-		
+					twitch_id: "",
+					channel: "",
+					client: nil
 	end
 	
 	def start_link([client, config]) do
-		state = %State{client: client, channel: config.channel, host: config.host, token: config.token,
-				port: config.port, nick: config.nick, user: config.user, name: config.name}
+		state = %State{client: client, channel: config.channel, host: config.host, 
+						token: config.token, port: config.port, nick: config.nick, 
+						user: config.user, name: config.name, twitch_id: config.twitch_id}
 		GenServer.start_link(__MODULE__, state, name: __MODULE__)
 	end
 	
@@ -30,14 +31,15 @@ defmodule Kaqibot.Connection do
 	
 	def handle_info({:connected, server, port}, state) do
 		IO.puts("Connected to #{server}:#{port}")
-		:ok = ExIRC.Client.logon(state.client, state.token, state.nick, state.user, state.name)
+		token = "oauth:#{state.token}"
+		:ok = ExIRC.Client.logon(state.client, token, state.nick, state.user, state.name)
 		
 		{:noreply, state}
 	end
 	
 	def handle_info(:logged_in, state) do
 		IO.puts("Logged in")
-		Kaqibot.ChannelSupervisor.start_child({state.client, state.channel})
+		Kaqibot.ChannelSupervisor.start_child({state.client, state.channel, state.twitch_id, state.token})
 		
 		{:noreply, state}
 	end

@@ -10,7 +10,7 @@ defmodule Kaqibot.ChannelSupervisor do
 		DynamicSupervisor.init(strategy: :one_for_one)
 	end
 	
-	def start_child(arg = {_client, _channel}) do
+	def start_child(arg = {_client, _channel, _twitch_id, _token}) do
 		DynamicSupervisor.start_child(__MODULE__, {Kaqibot.Channel, arg})
 	end
 end	

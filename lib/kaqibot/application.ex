@@ -6,6 +6,7 @@ defmodule Kaqibot.Application do
 		Process.register(client, :twitchirc)
 		config = Application.get_env(:kaqibot, :bot)
 		config = Map.put(config, :token, System.get_env("TWITCH_ACCESS_TOKEN"))
+		config = Map.put(config, :twitch_id, System.get_env("TWITCH_CLIENT_ID"))
 			
 		children = [
 		  {Kaqibot.Connection, [:twitchirc, config]},
