@@ -5,14 +5,9 @@ defmodule Kaqibot.Channel do
 		defstruct 	client: nil,
 					channel: "",
 					twitch_id: "",
-					token: ""
+					token: "",
+					dota: nil
 	end
-	
-	#@gorgc_id 56939869
-	@pendejos_id 106080212
-	@opendota_players_url 'https://api.opendota.com/api/players/'
-	@twitch_api_url 'https://api.twitch.tv/helix/'
-	
 	
 	def start_link({client, channel, twitch_id, token}) do
 		state = %State{client: client, channel: channel, twitch_id: twitch_id, token: token} 
@@ -22,7 +17,8 @@ defmodule Kaqibot.Channel do
 	def init(state) do
 		ExIRC.Client.add_handler(state.client, self())
 		ExIRC.Client.join(state.client, state.channel)
-
+		state = %State{state | dota: Application.get_env(:kaqibot, :dota_related)}
+		
 		{:ok, state}
 	end
 	
@@ -38,29 +34,39 @@ defmodule Kaqibot.Channel do
 		{:noreply, state}
 	end
 	
+	def handle_info({_ref, {:ok, msg}}, state) do
+		ExIRC.Client.msg(state.client, :privmsg, state.channel, msg)
+		{:noreply, state}
+	end
+	
+	def handle_info({:DOWN, _ref, :process, _pid, :normal}, state) do
+		# Task exited normally
+		{:noreply, state}
+	end
+	
 	def handle_info(_msg, state) do
 		{:noreply, state}
 	end
 	
 	def match_message({"!mmr", _sender, _channel}, state) do
-		Task.start(Kaqibot.Command, :mmr_command, ['#{@opendota_players_url}#{@pendejos_id}', state])
+		url = state.dota[:opendota_players_url] ++ state.dota[:pendejos_id]
+		Task.async(Kaqibot.Command, :mmr_command, [url])
 	end
 	
 	def match_message({"!prev", _sender, _channel}, state) do
-		Task.start(Kaqibot.Command, :prev_command, ['#{@opendota_players_url}#{@pendejos_id}/matches?limit=1', state])
+		url = state.dota[:opendota_players_url] ++ state.dota[:pendejos_id] ++ '/matches?limit=1'
+		Task.async(Kaqibot.Command, :prev_command, [url])
 	end
 	
 	def match_message({"!wl", _sender, _channel}, state) do
-		Task.start(
-			Kaqibot.Command, 
-			:wl_command, 
-			[
-				{'#{@twitch_api_url}streams?user_login=pendejosbattis', 
-				'#{@opendota_players_url}#{@pendejos_id}/matches?limit=15'},
-				[get_oauth_header(state), get_twitch_id_header(state)],
-				state
-			]
-		)
+		url_1 = state.dota[:twitch_api_url] ++ 'streams?user_login=pendejosbattis'
+		url_2 = state.dota[:opendota_players_url] ++ state.dota[:pendejos_id] ++ '/matches?limit=15'
+		urls = [url_1, url_2]
+		
+		header_1 = [get_oauth_header(state), get_twitch_id_header(state)]
+		headers = [header_1, []]
+		
+		Task.async(Kaqibot.Command, :wl_command, [urls, headers])
 	end
 	
 	def match_message(_, _state) do

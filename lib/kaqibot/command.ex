@@ -1,31 +1,30 @@
 defmodule Kaqibot.Command do
 	
-	@dotabuff_matches_url "https://www.dotabuff.com/matches/"
-	
-	def mmr_command(url, state) do
+	def mmr_command(url) do
 		{:ok, {_, _, body}} = :httpc.request(url)
 		player_info = Poison.decode!(body)
 		player_rank = player_info["rank_tier"]
 		reply = find_medal(player_rank)
-		ExIRC.Client.msg(state.client, :privmsg, state.channel, reply)
+		{:ok, reply}
 	end
 	
-	def prev_command(url, state) do
+	def prev_command(url) do
 		{:ok, {_, _, body}} = :httpc.request(url)
 		[match_info] = Poison.decode!(body)
 		match_id = match_info["match_id"]
-		reply = "#{@dotabuff_matches_url}#{match_id}"
-		ExIRC.Client.msg(state.client, :privmsg, state.channel, reply)
+		reply = "https://www.dotabuff.com/matches/#{match_id}"
+		{:ok, reply}
 	end
 	
-	def wl_command(urls, header, state) do
-		{url_1, url_2} = urls
-		{:ok, {_, _, body}} = :httpc.request(:get, {url_1, header}, [], [])
+	def wl_command(urls, headers) do
+		[url_1, url_2] = urls
+		[header_1, _] = headers
+		{:ok, {_, _, body}} = :httpc.request(:get, {url_1, header_1}, [], [])
 		stream_info = Poison.decode!(body)
 		
 		if stream_info["data"] == [] do
-			reply = "not live"
-			ExIRC.Client.msg(state.client, :privmsg, state.channel, reply)
+			reply = "Stream not live"
+			{:ok, reply}
 		else
 			[stream_data] = stream_info["data"]
 			started_at = stream_data["started_at"]
@@ -36,7 +35,7 @@ defmodule Kaqibot.Command do
 			matches_info = Poison.decode!(body)
 			{w, l} = find_wl_count(matches_info, date, {0, 0})
 			reply = "W #{w} - L #{l}"
-			ExIRC.Client.msg(state.client, :privmsg, state.channel, reply)
+			{:ok, reply}
 		end
 	end
 	
